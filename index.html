@@ -26,10 +26,11 @@ input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; border-rad
 .table th, .table td { border:1px solid #ddd; padding:8px; text-align:left; }
 .admin-panel { background: #e8f4f8; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #bce; }
 .user-list-item { display: flex; justify-content: space-between; padding: 5px; border-bottom: 1px solid #ccc; background: #fff; }
-.top-nav { position: relative; background-color: #333; overflow: hidden; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; flex-direction: row; }
-.top-nav button { background-color: inherit; border: none; outline: none; cursor: pointer; padding: 14px 16px; transition: 0.3s; color: white; font-size: 16px; height: 100%; display: flex; align-items: center; gap: 8px; z-index: 2; }
+.top-nav { position: relative; background-color: #333; overflow-x: auto; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; flex-direction: row; scrollbar-width: none; -ms-overflow-style: none; }
+.top-nav::-webkit-scrollbar { display: none; }
+.top-nav button { background-color: inherit; border: none; outline: none; cursor: pointer; padding: 14px 16px; transition: 0.3s; color: white; font-size: 16px; height: 100%; display: flex; align-items: center; gap: 8px; z-index: 2; white-space: nowrap; }
 .top-nav button:hover { background-color: #ddd; color: black; }
-.top-nav button.active { color: #fff; }
+.top-nav button.active { background-color: #0b7a3b; color: white; }
 .top-nav .right-side { margin-left: auto; }
 
 /* Estilos específicos para Login y Formularios */
@@ -73,9 +74,6 @@ input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; border-rad
 /* Animación de entrada para paneles */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeInCentered { from { opacity: 0; transform: translate(-50%, -60%); } to { opacity: 1; transform: translate(-50%, -50%); } }
-
-/* Slider para la barra de navegación */
-#nav-slider { position: absolute; bottom: 0; height: 100%; background: #0b7a3b; border-radius: 6px; transition: left 0.4s cubic-bezier(0.23, 1, 0.32, 1), width 0.4s cubic-bezier(0.23, 1, 0.32, 1); z-index: 1; }
 </style>
 
 <!-- SheetJS para exportar Excel -->
@@ -97,7 +95,6 @@ input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; border-rad
 
 <!-- BARRA DE ESTADO / NAVEGACIÓN -->
 <div id="navBar" class="top-nav hidden">
-    <div id="nav-slider"></div>
     <button id="navPanelAdmin" class="hidden"><i class="fas fa-users-cog"></i>Gestion de Usuarios</button>
     <button id="navNuevoRegistro"><i class="fas fa-plus-circle"></i>Registro</button>
     <button id="navVerRegistros"><i class="fas fa-history"></i>Historial</button>
@@ -320,7 +317,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const modalEditResponsable = document.getElementById("modalEditResponsable");
     const btnCerrarModalEditarRegistro = document.getElementById("btnCerrarModalEditarRegistro");
     const btnActualizarRegistro = document.getElementById("btnActualizarRegistro");
-    const navSlider = document.getElementById('nav-slider');
 
     const loaderOverlay = document.getElementById("loaderOverlay");
     const toast = document.getElementById("toast");
@@ -437,15 +433,6 @@ document.addEventListener("DOMContentLoaded", () => {
     /* ===============================
        NAVEGACIÓN (Sistema de Pestañas)
     ==================================*/
-    function updateNavSlider(activeButton) {
-        if (!activeButton) {
-            navSlider.style.width = '0px';
-            return;
-        }
-        navSlider.style.left = `${activeButton.offsetLeft}px`;
-        navSlider.style.width = `${activeButton.offsetWidth}px`;
-    }
-
 
     function mostrarSeccion(seccion) {
         // Ocultar todo
@@ -481,7 +468,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (activeButton) {
             activeButton.classList.add('active');
         }
-        updateNavSlider(activeButton);
     }
     
     function mostrarPanelAdmin() {
@@ -697,14 +683,14 @@ document.addEventListener("DOMContentLoaded", () => {
         // Asignar eventos a los botones generados dinámicamente
         document.querySelectorAll(".btnEditarUsuario").forEach(b => {
             b.addEventListener("click", (e) => {
-                const u = JSON.parse(e.target.dataset.user);
+                const u = JSON.parse(e.currentTarget.dataset.user);
                 abrirModalEdicion(u);
             });
         });
 
         document.querySelectorAll(".btnEliminarUsuario").forEach(b => {
             b.addEventListener("click", (e) => {
-                eliminarUsuario(e.target.dataset.id);
+                eliminarUsuario(e.currentTarget.dataset.id);
             });
         });
     }
