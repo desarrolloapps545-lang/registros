@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Registro de Datos por Líder</title>
+
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f2f2f2; padding: 20px; }
+.container { max-width: 800px; margin: auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); animation: fadeIn 0.5s ease-in-out; }
+h2 { text-align: center; }
+label { display: block; margin-top: 10px; font-weight: bold; }
+input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; border-radius: 5px; border: 1px solid #ccc; box-sizing: border-box; }
+.row { display: flex; gap: 8px; }
+.row input { width: 100%; }
+.actions { display:flex; gap:10px; margin-top:12px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; background: #222; color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; }
+.btn.secondary { background:#555; }
+.btn.positive { background:#0b7a3b; }
+.btn.danger { background:#b00020; }
+.btn.icon-only { padding: 8px 10px; gap: 0; }
+.hidden { display: none !important; }
+.records-card { border:1px solid #e0e0e0; padding:10px; border-radius:8px; margin-bottom:10px; background:#fafafa; }
+.table-responsive { overflow:auto; max-height:60vh; }
+.table { width:100%; border-collapse:collapse; }
+.table th, .table td { border:1px solid #ddd; padding:8px; text-align:left; }
+.admin-panel { background: #e8f4f8; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #bce; }
+.user-list-item { display: flex; justify-content: space-between; padding: 5px; border-bottom: 1px solid #ccc; background: #fff; }
+.top-nav { position: relative; background-color: #333; overflow: hidden; border-radius: 8px; margin-bottom: 20px; display: flex; align-items: center; flex-direction: row; }
+.top-nav button { background-color: inherit; border: none; outline: none; cursor: pointer; padding: 14px 16px; transition: 0.3s; color: white; font-size: 16px; height: 100%; display: flex; align-items: center; gap: 8px; z-index: 2; }
+.top-nav button:hover { background-color: #ddd; color: black; }
+.top-nav button.active { color: #fff; }
+.top-nav .right-side { margin-left: auto; }
+
+/* Estilos específicos para Login y Formularios */
+#panelRegistros {
+    max-width: 1200px; /* Ancho mayor para la tabla de historial */
+}
+
+#ingresoLider {
+    max-width: 240px;
+    width: 90%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0; /* De la regla anterior */
+    /* Estilos copiados de .container para que sea independiente */
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    animation: fadeInCentered 0.5s ease-in-out;
+}
+
+#formularioDatos.container {
+    max-width: 300px; /* Inputs más controlados */
+    margin: 20px auto;
+}
+
+/* Loader (Pantalla de carga) */
+.loader-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); display: flex; justify-content: center; align-items: center; z-index: 2000; transition: opacity 0.5s ease-out, visibility 0.5s ease-out; }
+.loader-overlay.fade-out { opacity: 0; visibility: hidden; }
+.loader { border: 6px solid #f3f3f3; border-top: 6px solid #0b7a3b; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+/* Toast (Mensajes emergentes) */
+.toast { visibility: hidden; min-width: 250px; margin-left: -125px; background-color: #333; color: #fff; text-align: center; border-radius: 4px; padding: 16px; position: fixed; z-index: 2001; left: 50%; bottom: 30px; font-size: 17px; }
+.toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+@keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+@keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+
+/* Animación de entrada para paneles */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeInCentered { from { opacity: 0; transform: translate(-50%, -60%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+
+/* Slider para la barra de navegación */
+#nav-slider { position: absolute; bottom: 0; height: 100%; background: #0b7a3b; border-radius: 6px; transition: left 0.4s cubic-bezier(0.23, 1, 0.32, 1), width 0.4s cubic-bezier(0.23, 1, 0.32, 1); z-index: 1; }
+</style>
+
+<!-- SheetJS para exportar Excel -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<!-- Supabase JS Client -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- Font Awesome para Íconos -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+</head>
+
+<body>
+
+<!-- PANTALLA DE CARGA INICIAL -->
+<div id="initialLoader" class="loader-overlay">
+    <div class="loader"></div>
+</div>
+
+<!-- BARRA DE ESTADO / NAVEGACIÓN -->
+<div id="navBar" class="top-nav hidden">
+    <div id="nav-slider"></div>
+    <button id="navPanelAdmin" class="hidden"><i class="fas fa-users-cog"></i>Gestion de Usuarios</button>
+    <button id="navNuevoRegistro"><i class="fas fa-plus-circle"></i>Registro</button>
+    <button id="navVerRegistros"><i class="fas fa-history"></i>Historial</button>
+    
+    <div class="right-side"><button class="btnLogout"><i class="fas fa-sign-out-alt"></i>Cerrar sesión</button></div>
+</div>
+
+<!-- LOGIN -->
+<div id="ingresoLider">
+    <h2>Ingreso</h2>
+
+    <label for="loginUser">Usuario:</label>
+    <input type="text" id="loginUser" placeholder="Ingrese su usuario" />
+    
+    <label for="loginDigits">Contraseña:</label>
+    <div style="position:relative;">
+        <input type="password" id="loginDigits" placeholder="****" maxlength="4" style="padding-right: 35px;" />
+        <span id="btnToggleLoginPass" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); cursor:pointer; color: #777;"><i class="fas fa-eye"></i></span>
+    </div>
+
+    <div class="actions">
+        <button id="btnLogin" class="btn" type="button"><i class="fas fa-sign-in-alt"></i>Entrar</button>
+    </div>
+</div>
+
+<!-- PANEL ADMINISTRADOR -->
+<div class="container hidden" id="panelAdmin">
+    <h3>Gestion de Usuarios</h3>
+
+    <button id="btnAbrirModalUsuario" class="btn positive" style="margin-bottom:15px;"><i class="fas fa-user-plus"></i>Nuevo Usuario</button>
+
+    <!-- Gestión de Usuarios -->
+    <div class="admin-panel">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Usuario</th>
+                        <th>Rol</th>
+                        <th>Cédula</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="listaUsuarios"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+
+<!-- FORM -->
+<div class="container hidden" id="formularioDatos">
+    <div class="top-info">Diligenciador: <b id="liderNombre"></b></div>
+    <hr>
+    <input type="hidden" id="editRegistroId" value="">
+
+    <label>Nombres</label><input type="text" id="nombres" />
+    <label>Apellidos</label><input type="text" id="apellidos" />
+    <label>Cédula</label><input type="number" id="cedula" />
+
+    <label>Fecha de Expedición</label>
+    <input type="date" id="fechaExpedicion" min="1900-01-01" />
+    <div id="errorFecha" class="error" style="display:none;color:#a00;margin-top:6px;"></div>
+
+    <label>Teléfono</label><input type="number" id="telefono" />
+    <label>Dirección</label><input type="text" id="direccion" />
+    <label>Barrio</label><input type="text" id="barrio" />
+    <label>Municipio</label><input type="text" id="municipio" />
+
+    <label>Responsable</label><input type="text" id="responsable" />
+
+    <div class="actions">
+        <button id="btnGuardar" class="btn" type="button"><i class="fas fa-save"></i>Guardar Registro</button>
+    </div>
+</div>
+
+<!-- MODAL CREAR USUARIO -->
+<div id="modalCrearUsuario" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); display:flex; justify-content:center; align-items:center; z-index:1000;">
+    <div style="background:white; padding:20px; border-radius:10px; width:400px;">
+        <h3 id="modalUsuarioTitulo">Nuevo Usuario</h3>
+        <input type="hidden" id="editUserId" value="">
+        <label>Usuario</label><input type="text" id="newUserUserName" />
+        <label>Nombre</label><input type="text" id="newUserName" />
+        <label>Cédula</label><input type="number" id="newUserCedula" />
+        <label>Ultimos 4 digitos de la cédula (Contraseña)</label><input type="text" id="newUserDigits" maxlength="4" readonly style="background-color: #f0f0f0;" />
+        <label>Rol</label>
+        <select id="newUserRole"></select>
+        <div class="actions" style="margin-top:15px; justify-content: flex-end;">
+            <button id="btnCerrarModalUsuario" class="btn secondary">Cancelar</button>
+            <button id="btnGuardarUsuario" class="btn positive"><i class="fas fa-save"></i>Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL EDITAR REGISTRO -->
+<div id="modalEditarRegistro" class="hidden" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); display:flex; justify-content:center; align-items:center; z-index:1000;">
+    <div style="background:white; padding:20px; border-radius:10px; width:400px; max-height:90vh; display: flex; flex-direction: column;">
+        <h3>Editar Registro</h3>
+        
+        <div style="overflow-y: auto; padding-right: 15px; margin-right: -15px;">
+            <input type="hidden" id="modalEditRegistroId">
+
+            <label>Nombres</label><input type="text" id="modalEditNombres">
+            <label>Apellidos</label><input type="text" id="modalEditApellidos">
+            <label>Cédula</label><input type="number" id="modalEditCedula">
+            <label>Teléfono</label><input type="number" id="modalEditTelefono">
+
+            <label>Fecha de Expedición</label>
+            <input type="date" id="modalEditFechaExpedicion" min="1900-01-01">
+            <div id="modalEditErrorFecha" class="error" style="display:none;color:#a00;margin-top:6px;"></div>
+            
+            <label>Municipio</label><input type="text" id="modalEditMunicipio">
+            <label>Dirección</label><input type="text" id="modalEditDireccion">
+            <label>Barrio</label><input type="text" id="modalEditBarrio">
+            <label>Responsable</label><input type="text" id="modalEditResponsable">
+        </div>
+
+        <div class="actions" style="margin-top:15px; justify-content: flex-end; flex-shrink: 0;">
+            <button id="btnCerrarModalEditarRegistro" class="btn secondary">Cancelar</button>
+            <button id="btnActualizarRegistro" class="btn positive"><i class="fas fa-sync-alt"></i>Actualizar</button>
+        </div>
+    </div>
+</div>
+
+<!-- PANEL REGISTROS (Espacio de trabajo) -->
+<div class="container hidden" id="panelRegistros">
+    <h3>Historial</h3>
+    <!-- BOTÓN EXPORTAR EXCEL -->
+    <button id="btnExportExcel" class="btn positive" style="margin-bottom:10px;"><i class="fas fa-file-excel"></i>Exportar Excel</button>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Nombres</th>
+                    <th>Apellidos</th>
+                    <th>Cédula</th>
+                    <th>Fecha de Expedicion</th>
+                    <th>Telefono</th>
+                    <th>Direccion</th>
+                    <th>Barrio</th>
+                    <th>Municipio</th>
+                    <th>Responsable</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="listaRegistrosBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- LOADER & TOAST -->
+<div id="loaderOverlay" class="loader-overlay hidden">
+    <div class="loader"></div>
+</div>
+<div id="toast" class="toast">Mensaje</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    // --- CONFIGURACIÓN SUPABASE ---
+    const SUPABASE_URL = 'https://wwnanytrmykjdjvjpxxs.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind3bmFueXRybXlramRqdmpweHhzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM0NDIwNDUsImV4cCI6MjA4OTAxODA0NX0.YbZpB8nIWBO9xmKeh3mr3_YAtDY_IomNtRG0JImyO4M';
+    
+    // Inicializar cliente
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // ELEMENTOS
+    const loginUser = document.getElementById("loginUser");
+    const loginDigits = document.getElementById("loginDigits");
+    const btnToggleLoginPass = document.getElementById("btnToggleLoginPass");
+    
+    const nombres = document.getElementById("nombres");
+    const apellidos = document.getElementById("apellidos");
+    const cedula = document.getElementById("cedula");
+    const fechaExpedicion = document.getElementById("fechaExpedicion");
+    const telefono = document.getElementById("telefono");
+    const direccion = document.getElementById("direccion");
+    const barrio = document.getElementById("barrio");
+    const municipio = document.getElementById("municipio");
+    const responsable = document.getElementById("responsable");
+
+    const editRegistroId = document.getElementById("editRegistroId");
+    const navBar = document.getElementById("navBar");
+    const navPanelAdmin = document.getElementById("navPanelAdmin");
+    const navNuevoRegistro = document.getElementById("navNuevoRegistro");
+    const navVerRegistros = document.getElementById("navVerRegistros");
+
+    const ingresoLider = document.getElementById("ingresoLider");
+    const panelAdmin = document.getElementById("panelAdmin");
+    const formularioDatos = document.getElementById("formularioDatos");
+    const modalCrearUsuario = document.getElementById("modalCrearUsuario");
+    const modalEditarRegistro = document.getElementById("modalEditarRegistro");
+    const panelRegistros = document.getElementById("panelRegistros");
+    const liderNombre = document.getElementById("liderNombre");
+    const listaRegistrosBody = document.getElementById("listaRegistrosBody");
+    const errorFecha = document.getElementById("errorFecha");
+
+    // Elementos Admin
+    const newUserUserName = document.getElementById("newUserUserName");
+    const newUserName = document.getElementById("newUserName");
+    const newUserCedula = document.getElementById("newUserCedula");
+    const newUserDigits = document.getElementById("newUserDigits");
+    const newUserRole = document.getElementById("newUserRole");
+    const listaUsuarios = document.getElementById("listaUsuarios");
+    const modalUsuarioTitulo = document.getElementById("modalUsuarioTitulo");
+    const editUserIdInput = document.getElementById("editUserId");
+
+    // Elementos del modal de edición de registros
+    const modalEditRegistroId = document.getElementById("modalEditRegistroId");
+    const modalEditNombres = document.getElementById("modalEditNombres");
+    const modalEditApellidos = document.getElementById("modalEditApellidos");
+    const modalEditCedula = document.getElementById("modalEditCedula");
+    const modalEditFechaExpedicion = document.getElementById("modalEditFechaExpedicion");
+    const modalEditErrorFecha = document.getElementById("modalEditErrorFecha");
+    const modalEditTelefono = document.getElementById("modalEditTelefono");
+    const modalEditDireccion = document.getElementById("modalEditDireccion");
+    const modalEditBarrio = document.getElementById("modalEditBarrio");
+    const modalEditMunicipio = document.getElementById("modalEditMunicipio");
+    const modalEditResponsable = document.getElementById("modalEditResponsable");
+    const btnCerrarModalEditarRegistro = document.getElementById("btnCerrarModalEditarRegistro");
+    const btnActualizarRegistro = document.getElementById("btnActualizarRegistro");
+    const navSlider = document.getElementById('nav-slider');
+
+    const loaderOverlay = document.getElementById("loaderOverlay");
+    const toast = document.getElementById("toast");
+
+    fechaExpedicion.max = new Date().toISOString().split("T")[0];
+
+    /* ===============================
+       UTILIDADES UI (Loader & Toast)
+    ==================================*/
+    function showLoader() { loaderOverlay.classList.remove("hidden"); }
+    function hideLoader() { loaderOverlay.classList.add("hidden"); }
+    
+    function showToast(message) {
+        toast.innerText = message;
+        toast.className = "toast show";
+        setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 3000);
+    }
+
+    /* ===============================
+       VALIDACIÓN DE CAMPOS OBLIGATORIOS
+    ==================================*/
+    function validarCampos() {
+        if (!nombres.value.trim()) return "Ingrese los nombres";
+        if (!apellidos.value.trim()) return "Ingrese los apellidos";
+        if (!cedula.value.trim()) return "Ingrese la cédula";
+        if (!fechaExpedicion.value.trim()) return "Seleccione la fecha de expedición";
+        if (!telefono.value.trim()) return "Ingrese el teléfono";
+        if (!direccion.value.trim()) return "Ingrese la dirección";
+        if (!barrio.value.trim()) return "Ingrese el barrio";
+        if (!municipio.value.trim()) return "Ingrese el municipio";
+        if (!responsable.value.trim()) return "Ingrese el responsable";
+        return null;
+    }
+
+    /* ===============================
+       LOGICA VISUAL LOGIN
+    ==================================*/
+    btnToggleLoginPass.addEventListener('click', () => {
+        const type = loginDigits.getAttribute('type') === 'password' ? 'text' : 'password';
+        loginDigits.setAttribute('type', type);
+        const icon = btnToggleLoginPass.querySelector("i");
+        icon.className = type === 'text' ? 'fas fa-eye-slash' : 'fas fa-eye';
+    });
+
+    /* ===============================
+       LOGIN SISTEMA (Tabla 'users')
+    ==================================*/
+    let currentUser = JSON.parse(localStorage.getItem("currentUser")) || null;
+
+    // Mostrar loader por 5 segundos y luego verificar sesión
+    setTimeout(() => {
+        if (currentUser) {
+            iniciarInterfazConSesion();
+        } else {
+            // No hay sesión, ocultar la carga inicial para mostrar el login
+            document.getElementById('initialLoader').classList.add('fade-out');
+        }
+    }, 2000);
+
+    async function iniciarSesion() {
+        const user = loginUser.value.trim();
+        const pass = loginDigits.value.trim();
+
+        if(!user || !pass) return alert("Ingrese usuario y contraseña");
+
+        try {
+            // Buscar usuario en tabla users
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('user_name', user)
+                .eq('digits', pass)
+                .single();
+
+            if(error || !data) {
+                alert("Usuario o contraseña incorrectos");
+                return;
+            }
+
+            currentUser = data;
+            localStorage.setItem("currentUser", JSON.stringify(currentUser)); // Guardar sesión
+            
+            // Limpiar inputs login
+            loginUser.value = "";
+            loginDigits.value = "";
+            
+            iniciarInterfazConSesion();
+
+        } catch(e) {
+            console.error(e);
+            alert("Error de conexión");
+        }
+    }
+
+    function iniciarInterfazConSesion() {
+            document.getElementById('initialLoader').classList.add('fade-out');
+
+            ingresoLider.classList.add("hidden");
+
+            // Mostrar Barra de Navegación
+            navBar.classList.remove("hidden");
+            liderNombre.innerText = currentUser.name;
+
+            // Lógica de roles para mostrar pestañas
+            if (currentUser.role === 'Administrador' || currentUser.role === 'Administrador maestro' || currentUser.role === 'admin') {
+                navPanelAdmin.classList.remove("hidden"); // Mostrar botón de admin
+                mostrarSeccion('admin'); // Ir por defecto a admin
+            } else {
+                navPanelAdmin.classList.add("hidden"); // Ocultar botón de admin
+                mostrarSeccion('registro'); // Ir por defecto a registro
+            }
+    }
+
+    /* ===============================
+       NAVEGACIÓN (Sistema de Pestañas)
+    ==================================*/
+    function updateNavSlider(activeButton) {
+        if (!activeButton) {
+            navSlider.style.width = '0px';
+            return;
+        }
+        navSlider.style.left = `${activeButton.offsetLeft}px`;
+        navSlider.style.width = `${activeButton.offsetWidth}px`;
+    }
+
+
+    function mostrarSeccion(seccion) {
+        // Ocultar todo
+        panelAdmin.classList.add("hidden");
+        formularioDatos.classList.add("hidden");
+        panelRegistros.classList.add("hidden");
+        modalCrearUsuario.classList.add("hidden");
+        modalEditarRegistro.classList.add("hidden");
+
+        // Quitar active class
+        const buttons = [navPanelAdmin, navNuevoRegistro, navVerRegistros];
+        buttons.forEach(btn => btn.classList.remove('active'));
+
+        let targetPanel = null;
+        let activeButton = null;
+
+        if (seccion === 'admin') {
+            targetPanel = panelAdmin;
+            activeButton = navPanelAdmin;
+            mostrarPanelAdmin();
+        } else if (seccion === 'registro') {
+            targetPanel = formularioDatos;
+            activeButton = navNuevoRegistro;
+            nuevoRegistro(); // Foco en nombre
+        } else if (seccion === 'ver_registros') {
+            targetPanel = panelRegistros;
+            activeButton = navVerRegistros;
+        }
+
+        if (targetPanel) {
+            targetPanel.classList.remove('hidden');
+        }
+        if (activeButton) {
+            activeButton.classList.add('active');
+        }
+        updateNavSlider(activeButton);
+    }
+    
+    function mostrarPanelAdmin() {
+        
+        // Configurar permisos de creación según rol
+        newUserRole.innerHTML = ""; // Limpiar opciones
+        
+        // Todos pueden crear Líderes
+        const optLider = new Option("Líder", "lider");
+        newUserRole.add(optLider);
+
+        // Solo Administrador maestro puede crear Administradores
+        if (currentUser.role === 'Administrador maestro') {
+            const optAdmin = new Option("Administrador", "Administrador");
+            newUserRole.add(optAdmin);
+        }
+
+        cargarUsuarios();
+    }
+
+    function validarFechaISO(fechaISO) {
+        if(!fechaISO) return {ok:false, msg:"Seleccione fecha"};
+        const parts = fechaISO.split("-");
+        if(parts.length !== 3) return {ok:false, msg:"Fecha inválida"};
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        if(y < 1900) return {ok:false, msg:"La fecha debe ser a partir del 1900"};
+        const hoy = new Date();
+        const fecha = new Date(y, m-1, d);
+        if(fecha > hoy) return {ok:false, msg:"La fecha no puede ser mayor al día de hoy"};
+
+        return {ok:true, day:String(d).padStart(2,"0"), month:String(m).padStart(2,"0"), year:String(y)};
+    }
+
+    // Función auxiliar para obtener la hora actual de Colombia (UTC-5) en formato ISO
+    function getFechaHoraColombia() {
+        const now = new Date();
+        const offset = -5; // Colombia es UTC-5
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const colDate = new Date(utc + (3600000 * offset));
+        
+        // Construir string ISO manualmente para asegurar el offset
+        const pad = (n) => n.toString().padStart(2, '0');
+        return `${colDate.getFullYear()}-${pad(colDate.getMonth()+1)}-${pad(colDate.getDate())}T` +
+               `${pad(colDate.getHours())}:${pad(colDate.getMinutes())}:${pad(colDate.getSeconds())}-05:00`;
+    }
+
+    /* ===============================
+       GUARDAR REGISTRO
+    ==================================*/
+    async function guardarRegistro() {
+
+        const faltante = validarCampos();
+        if (faltante) {
+            alert(faltante);
+            return;
+        }
+
+        const check = validarFechaISO(fechaExpedicion.value);
+        if(!check.ok) {
+            errorFecha.style.display = "block";
+            errorFecha.innerText = check.msg;
+            return;
+        }
+        errorFecha.style.display = "none";
+
+        showLoader(); // Mostrar carga
+
+        try {
+            const fechaFormatDB = `${check.year}-${check.month}-${check.day}`; // YYYY-MM-DD para Supabase
+
+            const datosRegistro = {
+                nombres: nombres.value.trim(),
+                apellidos: apellidos.value.trim(),
+                cedula: cedula.value.trim(),
+                fecha_expedicion: fechaFormatDB,
+                telefono: telefono.value.trim(),
+                direccion: direccion.value.trim(),
+                barrio: barrio.value.trim(),
+                municipio: municipio.value.trim(),
+                responsable: responsable.value.trim()
+            };
+            
+            // INSERT
+            datosRegistro.lider = currentUser ? currentUser.name : "Anon";
+            datosRegistro.created_at = getFechaHoraColombia(); // Forzar hora Colombia solo al crear
+            
+            const { error } = await supabase.from('registros').insert([datosRegistro]);
+            if (!error) {
+
+                nombres.value = apellidos.value = cedula.value = "";
+                fechaExpedicion.value = telefono.value = "";
+                direccion.value = barrio.value = municipio.value = "";
+                responsable.value = "";
+
+                showToast("Registro creado exitosamente");
+                nombres.focus(); // Enfocar para el siguiente
+            } else {
+                alert("Error al guardar en Supabase: " + error.message);
+            }
+        } catch(err) {
+            console.error(err);
+            alert("Error de conexión");
+        }
+        hideLoader(); // Ocultar carga
+    }
+
+    window.eliminarRegistro = async function(id) {
+        if(!confirm("¿Está seguro de eliminar este registro?")) return;
+        
+        showLoader();
+        const { error } = await supabase.from('registros').delete().eq('id', id);
+        hideLoader();
+
+        if(error) {
+            alert("Error al eliminar: " + error.message);
+        } else {
+            showToast("Registro eliminado");
+            // Recargar la tabla según el rol
+            if (currentUser.role === 'Administrador' || currentUser.role === 'Administrador maestro' || currentUser.role === 'admin') {
+                verRegistros('admin');
+            } else {
+                verRegistros('lider');
+            }
+        }
+    };
+
+    async function actualizarRegistro() {
+        const editId = modalEditRegistroId.value;
+
+        // Validar campos del modal
+        const check = validarFechaISO(modalEditFechaExpedicion.value);
+        if(!check.ok) {
+            modalEditErrorFecha.style.display = "block";
+            modalEditErrorFecha.innerText = check.msg;
+            return;
+        }
+        modalEditErrorFecha.style.display = "none";
+
+        const datosRegistro = {
+            nombres: modalEditNombres.value.trim(),
+            apellidos: modalEditApellidos.value.trim(),
+            cedula: modalEditCedula.value.trim(),
+            fecha_expedicion: `${check.year}-${check.month}-${check.day}`,
+            telefono: modalEditTelefono.value.trim(),
+            direccion: modalEditDireccion.value.trim(),
+            barrio: modalEditBarrio.value.trim(),
+            municipio: modalEditMunicipio.value.trim(),
+            responsable: modalEditResponsable.value.trim()
+        };
+
+        // Validar que no estén vacíos
+        for (const key in datosRegistro) {
+            if (!datosRegistro[key]) {
+                alert(`El campo ${key} no puede estar vacío.`);
+                return;
+            }
+        }
+
+        showLoader();
+        const { error } = await supabase.from('registros').update(datosRegistro).eq('id', editId);
+        hideLoader();
+
+        if (error) {
+            alert("Error al actualizar: " + error.message);
+        } else {
+            modalEditarRegistro.classList.add("hidden");
+            showToast("Registro actualizado");
+            // Recargar la tabla
+            if (currentUser.role.includes('Administrador') || currentUser.role === 'admin') {
+                verRegistros('admin');
+            } else {
+                verRegistros('lider');
+            }
+        }
+    }
+
+
+    /* ======================================
+       ADMINISTRADOR: GESTIÓN DE USUARIOS
+    =======================================*/
+    async function cargarUsuarios() {
+        const { data, error } = await supabase.from('users').select('*').order('id', {ascending: false});
+        if(error) return console.error(error);
+
+        let html = "";
+
+        data.forEach(u => {
+            // Filtro: No mostrar al usuario actual
+            if (u.id === currentUser.id) return;
+
+            // Filtro: Administradores no ven a Administradores maestros
+            if (currentUser.role !== 'Administrador maestro' && u.role === 'Administrador maestro') {
+                return;
+            }
+            
+            // Botones de acción
+            const btnEditar = `<button class="btn secondary icon-only btnEditarUsuario" data-user='${JSON.stringify(u)}' title="Editar"><i class="fas fa-edit"></i></button>`;
+            const btnEliminar = `<button class="btn danger icon-only btnEliminarUsuario" data-id="${u.id}" title="Eliminar"><i class="fas fa-trash-alt"></i></button>`;
+            const acciones = `<div style="display:flex; gap: 5px;">${btnEditar}${btnEliminar}</div>`;
+
+            html += `<tr>
+                <td>${u.name || ''}</td>
+                <td>${u.user_name || ''}</td>
+                <td>${u.role}</td>
+                <td>${u.cedula || 'N/A'}</td>
+                <td>${acciones}</td>
+            </tr>`;
+        });
+        listaUsuarios.innerHTML = html;
+
+        // Asignar eventos a los botones generados dinámicamente
+        document.querySelectorAll(".btnEditarUsuario").forEach(b => {
+            b.addEventListener("click", (e) => {
+                const u = JSON.parse(e.target.dataset.user);
+                abrirModalEdicion(u);
+            });
+        });
+
+        document.querySelectorAll(".btnEliminarUsuario").forEach(b => {
+            b.addEventListener("click", (e) => {
+                eliminarUsuario(e.target.dataset.id);
+            });
+        });
+    }
+
+    /* ======================================
+       CREAR / EDITAR / ELIMINAR USUARIO
+    =======================================*/
+    
+    // Auto-completar últimos 4 dígitos
+    newUserCedula.addEventListener("input", (e) => {
+        const val = e.target.value;
+        if(val.length >= 4) {
+            newUserDigits.value = val.slice(-4);
+        } else {
+            newUserDigits.value = val;
+        }
+    });
+
+    function abrirModalCreacion() {
+        modalUsuarioTitulo.innerText = "Nuevo Usuario";
+        editUserIdInput.value = ""; // Vacio = Crear
+        newUserUserName.value = "";
+        newUserName.value = "";
+        newUserCedula.value = "";
+        newUserDigits.value = "";
+        
+        // Actualizar texto botón
+        document.getElementById("btnGuardarUsuario").innerHTML = '<i class="fas fa-save"></i> Crear';
+        modalCrearUsuario.classList.remove("hidden");
+    }
+
+    function abrirModalEdicion(u) {
+        modalUsuarioTitulo.innerText = "Editar Usuario";
+        editUserIdInput.value = u.id; // ID = Editar
+        newUserUserName.value = u.user_name || "";
+        newUserName.value = u.name || "";
+        newUserCedula.value = u.cedula || "";
+        newUserDigits.value = u.digits || "";
+        newUserRole.value = u.role;
+
+        document.getElementById("btnGuardarUsuario").innerHTML = '<i class="fas fa-sync-alt"></i> Actualizar';
+        modalCrearUsuario.classList.remove("hidden");
+    }
+
+    async function guardarUsuario() {
+        const userName = newUserUserName.value.trim();
+        const name = newUserName.value.trim();
+        // Convertir a número (parseInt) para cumplir con el tipo de dato numérico en DB
+        const cedula = parseInt(newUserCedula.value.trim(), 10);
+        const digits = newUserDigits.value.trim(); // Se mantiene como texto para los ceros iniciales
+        const role = newUserRole.value;
+        const editId = editUserIdInput.value;
+
+        if(!userName || !name || !cedula || !digits) return alert("Complete todos los campos: Usuario, Nombre, Cédula y Contraseña");
+
+        showLoader(); // Mostrar carga
+
+        let result;
+        
+        if (!editId) {
+            // --- MODO CREAR ---
+            // Se agrega created_at para evitar el error de not-null constraint
+            result = await supabase.from('users').insert([{ 
+                user_name: userName, 
+                name, 
+                cedula, 
+                digits: digits, 
+                role,
+                created_at: new Date().toISOString() 
+            }]);
+        } else {
+            // --- MODO EDITAR ---
+            result = await supabase.from('users').update({ 
+                user_name: userName, 
+                name, 
+                cedula, 
+                digits: digits, 
+                role 
+            }).eq('id', editId);
+        }
+
+        const { error } = result;
+
+        if(error) {
+            alert("Error al guardar usuario: " + error.message);
+        } else {
+            showToast(editId ? "Usuario actualizado" : "Usuario creado");
+            modalCrearUsuario.classList.add("hidden");
+            cargarUsuarios();
+        }
+        hideLoader(); // Ocultar carga
+    }
+
+    async function eliminarUsuario(id) {
+        if(!confirm("¿Está seguro de eliminar este usuario? Esta acción es irreversible.")) return;
+        
+        const { error } = await supabase.from('users').delete().eq('id', id);
+        
+        if(error) {
+            alert("Error al eliminar: " + error.message);
+        } else {
+            showToast("Usuario eliminado");
+            cargarUsuarios();
+        }
+    }
+
+    /* ======================================
+       VER REGISTROS (ADMIN vs LIDER)
+    =======================================*/
+    let registrosCache = [];
+
+    // Si modo === 'admin', trae todo. Si modo === 'lider', filtra por currentUser.name
+    async function verRegistros(modo) {
+        if (!currentUser) return;
+
+        try {
+            let query = supabase.from('registros').select('*');
+            
+            if (modo === 'lider') {
+                // Solo sus registros
+                query = query.eq('lider', currentUser.name);
+            } else {
+                // Admin ve todo, ordenado por fecha
+                query = query.order('id', { ascending: false });
+            }
+
+            const { data, error } = await query;
+
+            if (error) throw error;
+            if (!data || data.length === 0) {
+                listaRegistrosBody.innerHTML = "<tr><td colspan='10'>No hay registros.</td></tr>";
+                mostrarSeccion('ver_registros');
+                return;
+            }
+
+            let html = "";
+
+            data.forEach((r,i)=>{
+                const btnEdit = `<button class="btn secondary icon-only btnEditarRegistro" data-registro='${JSON.stringify(r)}' title="Editar"><i class="fas fa-edit"></i></button>`;
+                const btnDel = `<button class="btn danger icon-only" onclick="eliminarRegistro(${r.id})" title="Eliminar"><i class="fas fa-trash-alt"></i></button>`;
+                const acciones = `<div style="display:flex; gap: 5px;">${btnEdit}${btnDel}</div>`;
+
+                html+=`<tr>
+                    <td>${r.nombres}</td>
+                    <td>${r.apellidos}</td>
+                    <td>${r.cedula}</td>
+                    <td>${r.fecha_expedicion}</td>
+                    <td>${r.telefono}</td>
+                    <td>${r.direccion}</td>
+                    <td>${r.barrio}</td>
+                    <td>${r.municipio}</td>
+                    <td>${r.responsable}</td>
+                    <td>${acciones}</td>
+                </tr>`;
+            });
+
+            registrosCache = data;
+            listaRegistrosBody.innerHTML = html;
+            
+            // Asignar eventos a los botones de editar registros
+            document.querySelectorAll(".btnEditarRegistro").forEach(b => {
+                b.addEventListener("click", (e) => {
+                    const r = JSON.parse(e.target.dataset.registro);
+
+                    // Cargar datos en el MODAL de edición
+                    modalEditRegistroId.value = r.id;
+                    modalEditNombres.value = r.nombres;
+                    modalEditApellidos.value = r.apellidos;
+                    modalEditCedula.value = r.cedula;
+                    modalEditFechaExpedicion.value = r.fecha_expedicion;
+                    modalEditTelefono.value = r.telefono;
+                    modalEditDireccion.value = r.direccion;
+                    modalEditBarrio.value = r.barrio;
+                    modalEditMunicipio.value = r.municipio;
+                    modalEditResponsable.value = r.responsable;
+
+                    modalEditarRegistro.classList.remove("hidden");
+                });
+            });
+            mostrarSeccion('ver_registros');
+
+        } catch(err) {
+            console.error(err);
+            alert("Error al obtener registros");
+        }
+    }
+
+    document.getElementById("btnExportExcel").addEventListener("click", ()=>{
+        if(registrosCache.length === 0) return alert("No hay datos para exportar");
+
+        const datos = registrosCache.map(r => ({
+            Lider: r.lider,
+            Nombres: r.nombres,
+            Apellidos: r.apellidos,
+            Cedula: r.cedula,
+            FechaExp: r.fecha_expedicion,
+            Telefono: r.telefono,
+            Direccion: r.direccion,
+            Barrio: r.barrio,
+            Municipio: r.municipio,
+            Responsable: r.responsable
+        }));
+
+        const hoja = XLSX.utils.json_to_sheet(datos);
+        const libro = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(libro, hoja, "Registros");
+        XLSX.writeFile(libro, "registros_livianos.xlsx");
+    });
+
+    /* ====================================== */
+
+    function nuevoRegistro() {
+        editRegistroId.value = ""; // Limpiar ID para crear nuevo
+        nombres.value = "";
+        apellidos.value = "";
+        cedula.value = "";
+        fechaExpedicion.value = "";
+        telefono.value = "";
+        direccion.value = "";
+        barrio.value = "";
+        municipio.value = "";
+        responsable.value = "";
+        nombres.focus();
+    }
+
+    function cerrarSesion() {
+        currentUser = null;
+        localStorage.removeItem("liderActivo");
+        localStorage.removeItem("currentUser");
+        
+        formularioDatos.classList.add("hidden");
+        panelAdmin.classList.add("hidden");
+        panelRegistros.classList.add("hidden");
+        navBar.classList.add("hidden"); // Ocultar navbar
+        ingresoLider.classList.remove("hidden");
+        
+        if(liderNombre) liderNombre.innerText = "";
+    }
+
+    // LISTENERS
+    document.getElementById("btnLogin").addEventListener("click", iniciarSesion);
+    document.getElementById("btnGuardar").addEventListener("click", guardarRegistro);
+    
+    // Botones de Logout (hay dos, uno en admin y otro en lider)
+    document.querySelectorAll(".btnLogout").forEach(btn => {
+        btn.addEventListener("click", cerrarSesion);
+    });
+
+    // Botones Admin
+    document.getElementById("btnGuardarUsuario").addEventListener("click", guardarUsuario);
+    document.getElementById("btnAbrirModalUsuario").addEventListener("click", abrirModalCreacion);
+    document.getElementById("btnCerrarModalUsuario").addEventListener("click", () => modalCrearUsuario.classList.add("hidden"));
+
+    // Botones Modal Editar Registro
+    btnActualizarRegistro.addEventListener("click", actualizarRegistro);
+    btnCerrarModalEditarRegistro.addEventListener("click", () => modalEditarRegistro.classList.add("hidden"));
+
+    // Botones Navegación
+    navPanelAdmin.addEventListener("click", () => mostrarSeccion('admin'));
+    navNuevoRegistro.addEventListener("click", () => mostrarSeccion('registro'));
+    navVerRegistros.addEventListener("click", () => {
+        if (currentUser.role === 'Administrador' || currentUser.role === 'Administrador maestro' || currentUser.role === 'admin') {
+            verRegistros('admin');
+        } else {
+            verRegistros('lider');
+        }
+    });
+});
+</script>
+
+</body>
+</html>
